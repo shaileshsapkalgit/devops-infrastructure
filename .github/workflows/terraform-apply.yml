@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'terraform/**'
 
   # Manual trigger bhi kar sakte ho
   workflow_dispatch:
