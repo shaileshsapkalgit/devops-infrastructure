@@ -1,0 +1,107 @@
+name: Terraform Plan
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Init
+        working-directory: terraform/environments/dev
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: terraform/environments/dev
+        run: terraform validate
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive terraform/
+        continue-on-error: true
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          soft_fail: true
+
+      - name: Run checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/environments/dev
+          soft_fail: true
+
+  plan:
+    name: Terraform Plan - Dev
+    runs-on: ubuntu-latest
+    needs: security-scan
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Init
+        working-directory: terraform/environments/dev
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: terraform/environments/dev
+        run: terraform plan -no-color -detailed-exitcode 2>&1 | tee plan-output.txt
+        continue-on-error: true
+
+      - name: Upload Plan Output
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-output-${{ github.run_id }}
+          path: terraform/environments/dev/plan-output.txt
+          retention-days: 5
+
+      - name: Plan Summary
+        run: |
+          echo "## 📋 Terraform Plan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          tail -20 terraform/environments/dev/plan-output.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
