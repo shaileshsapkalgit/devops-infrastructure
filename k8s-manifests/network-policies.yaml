@@ -1,0 +1,93 @@
+# ============================================
+# Network Policy - Student Service
+# Sirf enrollment-service call kar sakta hai
+# ============================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: student-service-network-policy
+  namespace: dev
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: student-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Sirf enrollment-service se traffic allow
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: enrollment-service
+      ports:
+        - protocol: TCP
+          port: 8081
+    # Prometheus metrics scraping allow
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8081
+  egress:
+    # DNS allow karo
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # AWS services allow (ECR, Secrets Manager)
+    - ports:
+        - protocol: TCP
+          port: 443
+
+---
+# ============================================
+# Network Policy - Enrollment Service
+# ============================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: enrollment-service-network-policy
+  namespace: dev
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: enrollment-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # LoadBalancer se traffic allow
+    - ports:
+        - protocol: TCP
+          port: 8082
+    # Prometheus metrics scraping allow
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8082
+  egress:
+    # Student-service ko call karne do
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: student-service
+      ports:
+        - protocol: TCP
+          port: 8081
+    # DNS allow
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # AWS services allow
+    - ports:
+        - protocol: TCP
+          port: 443
