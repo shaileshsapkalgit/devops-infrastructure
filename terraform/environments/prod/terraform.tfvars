@@ -1,7 +1,7 @@
 aws_region         = "us-east-1"
 environment        = "prod"
 project_name       = "devops-portfolio"
-aws_account_id     = "334044476918"
+aws_account_id     = "836095228526"
 cluster_name       = "devops-portfolio-prod"
 cluster_version    = "1.30"
 node_instance_type = "t3.large"
