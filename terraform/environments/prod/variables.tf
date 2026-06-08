@@ -15,7 +15,7 @@ variable "project_name" {
 
 variable "aws_account_id" {
   type    = string
-  default = "836095228526"
+  default = "361697161922"
 }
 
 variable "vpc_cidr" {
